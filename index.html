@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ルシフェロ!!</title>
+    <link rel="icon" type="image/x-icon" href="https://i.pinimg.com/736x/c4/72/fa/c472fa8bb84f1598a90d63ba669c3e9e.jpg">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <div id="initialLoading">
+        <img src="https://media.tenor.com/xQMMbRa6uJcAAAAM/anime-run-anime-run-fall.gif" alt="Loading">
+    </div>
+
+    
+    <button id="modeToggle"><i class="fas fa-moon"></i></button>
+    
+    <button id="musicToggle"><i class="fas fa-volume-up"></i></button>
+
+    
+    <audio id="backgroundMusic" loop autoplay>
+       
+        <source src="music/anime.mp3" type="audio/mpeg">
+    </audio>
+
+   
+    <header>
+        <div class="header-logo">
+            <h1>ルシフェロ!!</h1>
+        </div>
+        <div class="header-search">
+            <button id="searchBtn"><i class="fas fa-search"></i></button>
+            <input type="text" id="searchInput" placeholder="Search anime...">
+        </div>
+    </header>
+
+   
+    <div class="container">
+        <main>
+            
+            <section id="hero" class="hero-section active-section">
+                <div class="hero-content">
+                    <h2 id="heroTitle"></h2>
+                    <div class="hero-subtitle" id="heroSubtitle"></div>
+                    <p id="heroSynopsis"></p>
+                    <button class="watch-now-btn" id="watchNowBtn">Watch Now</button>
+                </div>
+            </section>
+
+            
+            <section id="popular-today" class="active-section">
+                <h2>Popular Today</h2>
+                <div class="anime-grid" id="popularTodayAnime"></div>
+            </section>
+
+            
+            <section id="search-results">
+                <h2>Search Results</h2>
+                <div class="anime-grid" id="searchResults"></div>
+            </section>
+        </main>
+
+       
+        <aside class="sidebar">
+            <div class="filters">
+                <select id="genreSelect">
+                    <option value="">Select Genre</option>
+                    <option value="1">Action</option>
+                    <option value="2">Adventure</option>
+                    <option value="4">Comedy</option>
+                    <option value="8">Drama</option>
+                    <option value="10">Fantasy</option>
+                    <option value="27">Shounen</option>
+                </select>
+                <select id="seasonSelect">
+                    <option value="">Select Season</option>
+                    <option value="spring">Spring</option>
+                    <option value="summer">Summer</option>
+                    <option value="fall">Fall</option>
+                    <option value="winter">Winter</option>
+                </select>
+                <select id="studioSelect">
+                    <option value="">Select Studio</option>
+                    <option value="1">Toei Animation</option>
+                    <option value="2">Sunrise</option>
+                    <option value="11">Madhouse</option>
+                    <option value="18">Studio Ghibli</option>
+                </select>
+                <select id="statusSelect">
+                    <option value="">Select Status</option>
+                    <option value="airing">Airing</option>
+                    <option value="complete">Complete</option>
+                    <option value="upcoming">Upcoming</option>
+                </select>
+                <select id="typeSelect">
+                    <option value="">Select Type</option>
+                    <option value="tv">TV</option>
+                    <option value="movie">Movie</option>
+                    <option value="ova">OVA</option>
+                    <option value="special">Special</option>
+                </select>
+                <select id="orderSelect">
+                    <option value="">Order By</option>
+                    <option value="score">Score</option>
+                    <option value="popularity">Popularity</option>
+                    <option value="trending">Trending</option>
+                    <option value="recently">Recently</option>
+                </select>
+                <button class="filter-btn" id="applyFilters">
+                    <i class="fas fa-search"></i> Search
+                </button>
+            </div>
+
+            
+            <div class="top-anime">
+                <h3>Top Anime</h3>
+                <div class="ranking-tabs">
+                    <button class="tab active" data-tab="weekly">Weekly</button>
+                    <button class="tab" data-tab="monthly">Monthly</button>
+                    <button class="tab" data-tab="all">All Time</button>
+                </div>
+                <div class="top-anime-list" id="topAnimeList"></div>
+            </div>
+        </aside>
+    </div>
+
+    
+    <div id="animeModal" class="modal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    
+    <footer>
+        <p>© 2025 AnimeVerse. All rights reserved.</p>
+    </footer>
+
+    <script src="script.js"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'922ece1c89fc225d',t:'MTc0MjQwNjU1My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
