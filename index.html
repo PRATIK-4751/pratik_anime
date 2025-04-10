@@ -3,142 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ルシフェロ!!</title>
+    <title>Pratik</title>
     <link rel="icon" type="image/x-icon" href="https://i.pinimg.com/736x/c4/72/fa/c472fa8bb84f1598a90d63ba669c3e9e.jpg">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    
-    <div id="initialLoading">
-        <img src="https://media.tenor.com/xQMMbRa6uJcAAAAM/anime-run-anime-run-fall.gif" alt="Loading">
+    <canvas id="bg-canvas"></canvas>
+    <div class="wrapper">
+        <header class="header">
+            <div class="container">
+                <a href="#" class="logo">ルシフェロ<span>世界</span></a>
+                <div class="search-container">
+                    <input type="text" id="searchInputMobile" placeholder="Search anime..." class="search-input">
+                    <button id="searchSubmitBtn" class="search-btn"><i class="fas fa-search"></i></button>
+                </div>
+                <div class="toggle-container">
+                    <button id="modeToggle" class="toggle-btn">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <button id="effectToggle" class="toggle-btn">
+                        <i class="fas fa-star"></i>
+                    </button>
+                    <button id="musicToggle" class="toggle-btn">
+                        <i class="fas fa-volume-mute"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <div class="content-wrapper">
+            <main id="mainContent">
+                <a id="backLink" class="back-link hidden"><i class="fas fa-arrow-left"></i> Back</a>
+                
+                <div id="homePage">
+                    <section class="anime-section">
+                        <h2 class="section-title">Trending Now</h2>
+                        <div class="grid" id="trendingAnime"></div>
+                    </section>
+                    
+                    <section class="anime-section">
+                        <h2 class="section-title">This Season</h2>
+                        <div class="grid" id="seasonalAnime"></div>
+                    </section>
+                    
+                    <section class="anime-section">
+                        <h2 class="section-title">Top Anime</h2>
+                        <div class="tab-buttons">
+                            <button class="tab-button active" data-tab="weekly">Weekly</button>
+                            <button class="tab-button" data-tab="monthly">Monthly</button>
+                            <button class="tab-button" data-tab="all-time">All Time</button>
+                        </div>
+                        <div class="grid" id="topAnime"></div>
+                    </section>
+                </div>
+                
+                <div id="searchPage" class="hidden">
+                    <h2 class="section-title">Search Results</h2>
+                    <div class="grid" id="searchResults"></div>
+                </div>
+                
+                <div id="detailPage" class="hidden">
+                    <div class="anime-detail-container">
+                        <div class="detail-flex">
+                            <div class="detail-sidebar">
+                                <div class="detail-card">
+                                    <img src="" alt="Anime Cover" class="detail-image" id="detailImage">
+                                    <div class="detail-stats">
+                                        <div class="stat-item">
+                                            <div class="stat-value" id="detailRating">N/A</div>
+                                            <div class="stat-label">Rating</div>
+                                        </div>
+                                        <div class="stat-item">
+                                            <div class="stat-value" id="detailRank">N/A</div>
+                                            <div class="stat-label">Rank</div>
+                                        </div>
+                                        <div class="stat-item">
+                                            <div class="stat-value" id="detailPopularity">N/A</div>
+                                            <div class="stat-label">Popularity</div>
+                                        </div>
+                                    </div>
+                                    <div class="info-grid">
+                                        <div class="info-label">Type:</div>
+                                        <div id="detailType">N/A</div>
+                                        <div class="info-label">Episodes:</div>
+                                        <div id="detailEpisodes">N/A</div>
+                                        <div class="info-label">Status:</div>
+                                        <div id="detailStatus">N/A</div>
+                                        <div class="info-label">Aired:</div>
+                                        <div id="detailAired">N/A</div>
+                                        <div class="info-label">Season:</div>
+                                        <div id="detailSeason">N/A</div>
+                                        <div class="info-label">Studios:</div>
+                                        <div id="detailStudios">N/A</div>
+                                        <div class="info-label">Genres:</div>
+                                        <div id="detailGenres">N/A</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="detail-main">
+                                <h1 class="detail-title" id="detailTitle">Anime Title</h1>
+                                <div class="detail-japanese" id="detailJapanese">Japanese Title</div>
+                                <div class="detail-card synopsis-card">
+                                    <h3 class="detail-subtitle">Synopsis</h3>
+                                    <p class="detail-synopsis" id="detailSynopsis">Loading synopsis...</p>
+                                </div>
+                                <div class="characters-section">
+                                    <h3 class="detail-subtitle">Characters</h3>
+                                    <div class="characters-grid" id="charactersList"></div>
+                                </div>
+                                <div class="detail-card trailer-card">
+                                    <h3 class="detail-subtitle">Trailer</h3>
+                                    <div class="trailer-wrapper" id="trailerEmbed">
+                                        <div class="trailer-placeholder">
+                                            <p>No trailer available</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="recommendations-section">
+                                    <h3 class="detail-subtitle">You Might Also Like</h3>
+                                    <div class="grid recommendations-grid" id="recommendationsList"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            
+            <aside class="sidebar" id="filterSidebar">
+                <h3 class="sidebar-title">Advanced Filters</h3>
+                <div class="filter-section">
+                    <select id="genreFilter" class="filter-select">
+                        <option value="">Select Genre</option>
+                        <option value="action">Action</option>
+                        <option value="comedy">Comedy</option>
+                        <option value="drama">Drama</option>
+                        <option value="fantasy">Fantasy</option>
+                        <option value="horror">Horror</option>
+                        <option value="romance">Romance</option>
+                        <option value="sci-fi">Sci-Fi</option>
+                        <option value="slice-of-life">Slice of Life</option>
+                    </select>
+                    <select id="seasonFilter" class="filter-select">
+                        <option value="">Select Season</option>
+                        <option value="winter">Winter</option>
+                        <option value="spring">Spring</option>
+                        <option value="summer">Summer</option>
+                        <option value="fall">Fall</option>
+                    </select>
+                    <select id="studioFilter" class="filter-select">
+                        <option value="">Select Studio</option>
+                        <option value="shueisha">Shueisha</option>
+                        <option value="madhouse">Madhouse</option>
+                        <option value="ufotable">ufotable</option>
+                        <option value="toei">Toei Animation</option>
+                        <option value="mappa">MAPPA</option>
+                    </select>
+                    <select id="statusFilter" class="filter-select">
+                        <option value="">Select Status</option>
+                        <option value="airing">Airing</option>
+                        <option value="finished">Finished</option>
+                        <option value="upcoming">Upcoming</option>
+                    </select>
+                    <select id="typeFilter" class="filter-select">
+                        <option value="">Select Type</option>
+                        <option value="tv">TV</option>
+                        <option value="movie">Movie</option>
+                        <option value="ova">OVA</option>
+                        <option value="special">Special</option>
+                    </select>
+                    <select id="orderByFilter" class="filter-select">
+                        <option value="">Order By</option>
+                        <option value="score">Score</option>
+                        <option value="rank">Rank</option>
+                        <option value="popularity">Popularity</option>
+                        <option value="title">Title</option>
+                    </select>
+                    <button id="filterSearchBtn" class="filter-search-btn">Apply Filters</button>
+                </div>
+            </aside>
+            
+            <button id="sidebarToggle" class="sidebar-toggle">
+                <i class="fas fa-filter"></i>
+            </button>
+        </div>
+        
+        <footer class="footer">
+            <div class="container">
+                <p>© 2025 AnimeVerse. All rights reserved.</p>
+            </div>
+        </footer>
     </div>
-
     
-    <button id="modeToggle"><i class="fas fa-moon"></i></button>
-    
-    <button id="musicToggle"><i class="fas fa-volume-up"></i></button>
-
-    
-    <audio id="backgroundMusic" loop autoplay>
-       
-        <source src="music/anime.mp3" type="audio/mpeg">
+    <audio id="backgroundMusic" loop>
+        <source src="music/anime.mp3" type="audio/mp3">
     </audio>
-
-   
-    <header>
-        <div class="header-logo">
-            <h1>ルシフェロ!!</h1>
-        </div>
-        <div class="header-search">
-            <button id="searchBtn"><i class="fas fa-search"></i></button>
-            <input type="text" id="searchInput" placeholder="Search anime...">
-        </div>
-    </header>
-
-   
-    <div class="container">
-        <main>
-            
-            <section id="hero" class="hero-section active-section">
-                <div class="hero-content">
-                    <h2 id="heroTitle"></h2>
-                    <div class="hero-subtitle" id="heroSubtitle"></div>
-                    <p id="heroSynopsis"></p>
-                    <button class="watch-now-btn" id="watchNowBtn">Watch Now</button>
-                </div>
-            </section>
-
-            
-            <section id="popular-today" class="active-section">
-                <h2>Popular Today</h2>
-                <div class="anime-grid" id="popularTodayAnime"></div>
-            </section>
-
-            
-            <section id="search-results">
-                <h2>Search Results</h2>
-                <div class="anime-grid" id="searchResults"></div>
-            </section>
-        </main>
-
-       
-        <aside class="sidebar">
-            <div class="filters">
-                <select id="genreSelect">
-                    <option value="">Select Genre</option>
-                    <option value="1">Action</option>
-                    <option value="2">Adventure</option>
-                    <option value="4">Comedy</option>
-                    <option value="8">Drama</option>
-                    <option value="10">Fantasy</option>
-                    <option value="27">Shounen</option>
-                </select>
-                <select id="seasonSelect">
-                    <option value="">Select Season</option>
-                    <option value="spring">Spring</option>
-                    <option value="summer">Summer</option>
-                    <option value="fall">Fall</option>
-                    <option value="winter">Winter</option>
-                </select>
-                <select id="studioSelect">
-                    <option value="">Select Studio</option>
-                    <option value="1">Toei Animation</option>
-                    <option value="2">Sunrise</option>
-                    <option value="11">Madhouse</option>
-                    <option value="18">Studio Ghibli</option>
-                </select>
-                <select id="statusSelect">
-                    <option value="">Select Status</option>
-                    <option value="airing">Airing</option>
-                    <option value="complete">Complete</option>
-                    <option value="upcoming">Upcoming</option>
-                </select>
-                <select id="typeSelect">
-                    <option value="">Select Type</option>
-                    <option value="tv">TV</option>
-                    <option value="movie">Movie</option>
-                    <option value="ova">OVA</option>
-                    <option value="special">Special</option>
-                </select>
-                <select id="orderSelect">
-                    <option value="">Order By</option>
-                    <option value="score">Score</option>
-                    <option value="popularity">Popularity</option>
-                    <option value="trending">Trending</option>
-                    <option value="recently">Recently</option>
-                </select>
-                <button class="filter-btn" id="applyFilters">
-                    <i class="fas fa-search"></i> Search
-                </button>
-            </div>
-
-            
-            <div class="top-anime">
-                <h3>Top Anime</h3>
-                <div class="ranking-tabs">
-                    <button class="tab active" data-tab="weekly">Weekly</button>
-                    <button class="tab" data-tab="monthly">Monthly</button>
-                    <button class="tab" data-tab="all">All Time</button>
-                </div>
-                <div class="top-anime-list" id="topAnimeList"></div>
-            </div>
-        </aside>
-    </div>
-
     
-    <div id="animeModal" class="modal">
-        <div class="modal-content">
-            <span class="close">×</span>
-            <div id="modalContent"></div>
-        </div>
-    </div>
-
-    
-    <footer>
-        <p>© 2025 AnimeVerse. All rights reserved.</p>
-    </footer>
-
     <script src="script.js"></script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'922ece1c89fc225d',t:'MTc0MjQwNjU1My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>

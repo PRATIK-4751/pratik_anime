@@ -1,1 +1,0 @@
-# pratik_anime

@@ -1,544 +1,585 @@
-const JIKAN_BASE_URL = 'https://api.jikan.moe/v4';
-const KITSU_BASE_URL = 'https://kitsu.io/api/edge';
-
 const cache = new Map();
 const CACHE_DURATION = 1000 * 60 * 5;
+const JIKAN_BASE_URL = 'https://api.jikan.moe/v4';
 
-const showLoading = () => {
-    console.log('Showing loading indicator');
-};
-
-const hideLoading = () => {
-    console.log('Hiding loading indicator');
-};
-
-const initialLoading = document.getElementById('initialLoading');
-function hideInitialLoading() {
-    initialLoading.classList.add('hidden');
+function getElement(id) {
+    const element = document.getElementById(id);
+    if (!element) console.warn(`Element with ID '${id}' not found`);
+    return element;
 }
 
-const modeToggle = document.getElementById('modeToggle');
-const musicToggle = document.getElementById('musicToggle');
-const backgroundMusic = document.getElementById('backgroundMusic');
-let isNightMode = false;
-let isMusicPlaying = true;
+const trendingAnimeContainer = getElement('trendingAnime');
+const seasonalAnimeContainer = getElement('seasonalAnime');
+const searchResultsContainer = getElement('searchResults');
+const homePage = getElement('homePage');
+const searchPage = getElement('searchPage');
+const detailPage = getElement('detailPage');
+const searchInput = getElement('searchInputMobile');
+const searchSubmitBtn = getElement('searchSubmitBtn');
+const backgroundMusic = getElement('backgroundMusic');
+const topAnimeContainer = getElement('topAnime');
+const genreFilter = getElement('genreFilter');
+const seasonFilter = getElement('seasonFilter');
+const studioFilter = getElement('studioFilter');
+const statusFilter = getElement('statusFilter');
+const typeFilter = getElement('typeFilter');
+const orderByFilter = getElement('orderByFilter');
+const filterSearchBtn = getElement('filterSearchBtn');
+const backLink = getElement('backLink');
+const sidebarToggle = getElement('sidebarToggle');
+const filterSidebar = getElement('filterSidebar');
+const logo = document.querySelector('.logo');
 
-backgroundMusic.play();
+let isNightMode = false;
+let isEffectOn = true;
+let isMusicPlaying = false;
+let currentPage = 'home';
+let currentAnimeId = null;
+let previousPage = null;
+let lastSearchParams = {};
+
+function init3DBackground() {
+    const canvas = document.getElementById('bg-canvas');
+    if (!canvas || !window.THREE) return;
+    
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    let particlesMesh = null;
+    let snowMesh = null;
+
+    if (isEffectOn) {
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = Math.min(1000, window.innerWidth < 640 ? 500 : 1000);
+        const posArray = new Float32Array(particlesCount * 3);
+        const colorsArray = new Float32Array(particlesCount * 3);
+
+        for (let i = 0; i < particlesCount * 3; i += 3) {
+            posArray[i] = (Math.random() - 0.5) * 8;
+            posArray[i + 1] = (Math.random() - 0.5) * 8;
+            posArray[i + 2] = (Math.random() - 0.5) * 8;
+            const redBase = isNightMode ? 0.4 : 0.6;
+            colorsArray[i] = redBase + Math.random() * 0.4;
+            colorsArray[i + 1] = Math.random() * 0.1;
+            colorsArray[i + 2] = Math.random() * 0.1;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({ 
+            size: window.innerWidth < 640 ? 0.02 : 0.015, 
+            vertexColors: true, 
+            transparent: true, 
+            opacity: 0.7 
+        });
+        particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+    } else {
+        const snowGeometry = new THREE.BufferGeometry();
+        const snowCount = Math.min(800, window.innerWidth < 640 ? 400 : 800);
+        const snowPosArray = new Float32Array(snowCount * 3);
+        const snowVelocities = new Float32Array(snowCount);
+
+        for (let i = 0; i < snowCount * 3; i += 3) {
+            snowPosArray[i] = (Math.random() - 0.5) * 15;
+            snowPosArray[i + 1] = (Math.random() - 0.5) * 15 + 8;
+            snowPosArray[i + 2] = (Math.random() - 0.5) * 15;
+            snowVelocities[i / 3] = Math.random() * 0.015 + 0.008;
+        }
+
+        snowGeometry.setAttribute('position', new THREE.BufferAttribute(snowPosArray, 3));
+        snowGeometry.setAttribute('velocity', new THREE.BufferAttribute(snowVelocities, 1));
+        const snowMaterial = new THREE.PointsMaterial({ 
+            color: 0xFFFFFF, 
+            size: window.innerWidth < 640 ? 0.05 : 0.04, 
+            transparent: true, 
+            opacity: 0.6 
+        });
+        snowMesh = new THREE.Points(snowGeometry, snowMaterial);
+        scene.add(snowMesh);
+    }
+
+    camera.position.z = 2;
+
+    function handleResize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+    }
+
+    window.addEventListener('resize', handleResize);
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (isEffectOn && particlesMesh) {
+            particlesMesh.rotation.x += 0.0004;
+            particlesMesh.rotation.y += 0.0004;
+        } else if (!isEffectOn && snowMesh) {
+            const positions = snowMesh.geometry.attributes.position.array;
+            const velocities = snowMesh.geometry.attributes.velocity.array;
+            for (let i = 0; i < snowMesh.geometry.attributes.position.count * 3; i += 3) {
+                positions[i + 1] -= velocities[i / 3];
+                if (positions[i + 1] < -8) {
+                    positions[i + 1] = 8;
+                    positions[i] = (Math.random() - 0.5) * 15;
+                    positions[i + 2] = (Math.random() - 0.5) * 15;
+                }
+            }
+            snowMesh.geometry.attributes.position.needsUpdate = true;
+        }
+        renderer.render(scene, camera);
+    }
+    animate();
+}
 
 function toggleMode() {
     isNightMode = !isNightMode;
     document.body.classList.toggle('night-mode', isNightMode);
-    document.body.classList.toggle('day-mode', !isNightMode);
-    modeToggle.innerHTML = isNightMode ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-    
-    if (isNightMode) {
-        initStarfield();
-        document.querySelectorAll('.snowflake').forEach(s => s.remove());
-    } else {
-        createSnowflakes();
-        if (starfieldCanvas) starfieldCanvas.remove();
-    }
+    document.querySelector('#modeToggle i').className = `fas ${isNightMode ? 'fa-sun' : 'fa-moon'}`;
+    init3DBackground();
+}
+
+function toggleEffect() {
+    isEffectOn = !isEffectOn;
+    document.querySelector('#effectToggle i').className = `fas ${isEffectOn ? 'fa-star' : 'fa-snowflake'}`;
+    init3DBackground();
 }
 
 function toggleMusic() {
     isMusicPlaying = !isMusicPlaying;
-    if (isMusicPlaying) {
-        backgroundMusic.play();
-        musicToggle.innerHTML = '<i class="fas fa-volume-up"></i>';
-    } else {
-        backgroundMusic.pause();
-        musicToggle.innerHTML = '<i class="fas fa-volume-mute"></i>';
-    }
+    isMusicPlaying ? backgroundMusic.play().catch(err => console.log('Audio playback prevented:', err)) : backgroundMusic.pause();
+    document.querySelector('#musicToggle i').className = `fas ${isMusicPlaying ? 'fa-music' : 'fa-volume-mute'}`;
 }
 
-modeToggle.addEventListener('click', toggleMode);
-musicToggle.addEventListener('click', toggleMusic);
-
-function createSnowflakes() {
-    for (let i = 0; i < 100; i++) {
-        const snowflake = document.createElement('div');
-        snowflake.className = 'snowflake';
-        snowflake.innerHTML = '❄';
-        snowflake.style.left = Math.random() * 100 + 'vw';
-        snowflake.style.animationDuration = Math.random() * 5 + 5 + 's';
-        snowflake.style.animationDelay = Math.random() * 5 + 's';
-        snowflake.style.opacity = Math.random();
-        document.body.appendChild(snowflake);
-    }
-}
-
-let starfieldCanvas;
-function initStarfield() {
-    if (starfieldCanvas) starfieldCanvas.remove();
-    starfieldCanvas = document.createElement('canvas');
-    starfieldCanvas.id = 'starfield';
-    document.body.appendChild(starfieldCanvas);
-    const ctx = starfieldCanvas.getContext('2d');
-    starfieldCanvas.width = window.innerWidth;
-    starfieldCanvas.height = window.innerHeight;
-    const stars = [];
-    for (let i = 0; i < 200; i++) {
-        stars.push({
-            x: Math.random() * starfieldCanvas.width,
-            y: Math.random() * starfieldCanvas.height,
-            z: Math.random() * starfieldCanvas.width,
-            speed: Math.random() * 0.5 + 0.5
-        });
-    }
-    function animateStars() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillRect(0, 0, starfieldCanvas.width, starfieldCanvas.height);
-        stars.forEach(star => {
-            star.z -= star.speed;
-            if (star.z <= 0) {
-                star.z = starfieldCanvas.width;
-                star.x = Math.random() * starfieldCanvas.width;
-                star.y = Math.random() * starfieldCanvas.height;
-            }
-            const x = (star.x - starfieldCanvas.width / 2) * (starfieldCanvas.width / star.z) + starfieldCanvas.width / 2;
-            const y = (star.y - starfieldCanvas.height / 2) * (starfieldCanvas.width / starfieldCanvas.height) + starfieldCanvas.height / 2;
-            const size = starfieldCanvas.width / star.z;
-            ctx.fillStyle = 'white';
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        requestAnimationFrame(animateStars);
-    }
-    animateStars();
-    window.addEventListener('resize', () => {
-        starfieldCanvas.width = window.innerWidth;
-        starfieldCanvas.height = window.innerHeight;
-    });
-}
-
-async function fetchWithCache(url) {
-    if (cache.has(url)) {
-        const { data, timestamp } = cache.get(url);
-        if (Date.now() - timestamp < CACHE_DURATION) {
-            return data;
+async function fetchWithRetry(url, options = {}, maxRetries = 3, delay = 1000) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            if (attempt < maxRetries) await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, attempt - 1)));
+            else throw error;
         }
     }
+    throw new Error('Max retry attempts reached');
+}
+
+async function fetchWithCache(key, fetchFunction) {
+    const now = Date.now();
+    if (cache.has(key) && (now - cache.get(key).timestamp < CACHE_DURATION)) return cache.get(key).data;
     try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Network response was not ok');
-        const data = await response.json();
-        cache.set(url, { data, timestamp: Date.now() });
+        const data = await fetchFunction();
+        cache.set(key, { data, timestamp: now });
         return data;
     } catch (error) {
-        console.error('Fetch error:', error);
-        return null;
+        console.error(`Error fetching ${key}:`, error);
+        throw error;
     }
 }
 
-const slideshowImages = [
-    'https://external-preview.redd.it/Dx7kym02QCFgvV3zZSCWM-1kPXwcgoCdEzFVCDvan8k.jpg?width=640&crop=smart&auto=webp&s=c9f301b489d28450bc46ef1528fd3183b4a861ad',
-    'https://wallpapercave.com/wp/wp6942316.jpg',
-    'https://images6.alphacoders.com/940/thumb-1920-940473.jpg',
-    'https://external-preview.redd.it/nEdjjB9-QmYr6y99INRSvttOaZ539_gEayDfUw1b2x0.jpg?auto=webp&s=6c57ff7fcb3d980a7ea3c09583b89b71f137c1f7'
-];
-
-const initialSlideshowData = [
-    { 
-        title: 'Berserk', 
-        subtitle: '', 
-        synopsis: 'Guts, a mercenary, joins the Band of the Hawk after being defeated by its leader, Griffith. Together, they fight in the kingdom of Midland, but dark forces conspire against them.' 
-    },
-    { 
-        title: 'Monster', 
-        subtitle: '', 
-        synopsis: 'Dr. Kenzo Tenma, a skilled neurosurgeon, saves a young boy named Johan Liebert, only to discover years later that Johan has become a dangerous psychopath, forcing Tenma to confront the consequences of his decision.' 
-    },
-    { 
-        title: 'Fairy Tail', 
-        subtitle: '', 
-        synopsis: 'Lucy, a young wizard, joins the Fairy Tail guild and teams up with Natsu Dragneel, a fire-breathing wizard, as they embark on adventures and battle dark forces threatening their world.' 
-    },
-    { 
-        title: 'Bleach', 
-        subtitle: '', 
-        synopsis: 'Ichigo Kurosaki gains the powers of a Soul Reaper and must protect the living world from evil spirits while guiding departed souls to the afterlife, facing greater threats as his journey unfolds.' 
-    }
-];
-
-let slideshowData = [...initialSlideshowData];
-let dynamicSlideshowImages = [...slideshowImages];
-let currentSlide = 0;
-
-async function fetchAdditionalSlides() {
-    try {
-        showLoading();
-        const jikanData = await fetchWithCache(`${JIKAN_BASE_URL}/top/anime?filter=airing`);
-        const kitsuData = await fetchWithCache(`${KITSU_BASE_URL}/trending/anime`);
-        const additionalAnimes = mergeSources(jikanData?.data || [], kitsuData?.data || []);
-        const additionalSlides = additionalAnimes.slice(0, 3).map(anime => {
-            const titleParts = (anime.title || 'Untitled').split(':');
-            return {
-                title: titleParts[0].trim(),
-                subtitle: titleParts[1] ? titleParts[1].trim() : '',
-                synopsis: anime.synopsis || 'No synopsis available.',
-                images: {
-                    jpg: { 
-                        image_url: anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || 'https://via.placeholder.com/1200x400'
-                    }
-                },
-                score: anime.score || 0,
-                type: anime.type || 'TV',
-                status: anime.status || 'Unknown',
-                genres: anime.genres?.map(g => g.name).join(', ') || 'Unknown'
-            };
-        });
-        additionalSlides.forEach(slide => {
-            slideshowData.push({
-                title: slide.title,
-                subtitle: slide.subtitle,
-                synopsis: slide.synopsis
-            });
-            dynamicSlideshowImages.push(slide.images.jpg.image_url);
-        });
-    } catch (error) {
-        console.error('Error fetching additional slides:', error);
-    } finally {
-        hideLoading();
-    }
-}
-
-function startSlideshow() {
-    const heroSection = document.getElementById('hero');
-    const heroTitle = document.getElementById('heroTitle');
-    const heroSubtitle = document.getElementById('heroSubtitle');
-    const heroSynopsis = document.getElementById('heroSynopsis');
-    const watchNowBtn = document.getElementById('watchNowBtn');
-    function updateSlide() {
-        const slide = slideshowData[currentSlide];
-        heroSection.style.backgroundImage = `url('${dynamicSlideshowImages[currentSlide]}')`;
-        heroTitle.textContent = slide.title;
-        heroSubtitle.textContent = slide.subtitle;
-        heroSynopsis.textContent = slide.synopsis.substring(0, 150) + '...';
-        watchNowBtn.onclick = () => showAnimeDetails(slide);
-        currentSlide = (currentSlide + 1) % slideshowData.length;
-    }
-    fetchAdditionalSlides().then(() => {
-        updateSlide();
-        setInterval(updateSlide, 5000);
+async function fetchTrendingAnime() {
+    return fetchWithCache('trending', async () => {
+        const response = await fetchWithRetry(`${JIKAN_BASE_URL}/top/anime?limit=12&filter=airing`);
+        return response.data.map(anime => ({
+            id: anime.mal_id,
+            title: anime.title,
+            image: anime.images.jpg.large_image_url,
+            rating: anime.score,
+            year: anime.year || 'N/A',
+            type: anime.type || 'TV'
+        }));
     });
 }
 
-async function performAdvancedSearch() {
-    const season = document.getElementById('seasonSelect').value;
-    const genre = document.getElementById('genreSelect').value;
-    const studio = document.getElementById('studioSelect').value;
-    const status = document.getElementById('statusSelect').value;
-    const type = document.getElementById('typeSelect').value;
-    const order = document.getElementById('orderSelect').value;
-    try {
-        showLoading();
-        let jikanUrl = `${JIKAN_BASE_URL}/anime?`;
-        let kitsuUrl = `${KITSU_BASE_URL}/anime?`;
-        const jikanParams = [];
-        if (season) jikanParams.push(`season=${season}`);
-        if (genre) jikanParams.push(`genres=${genre}`);
-        if (studio) jikanParams.push(`producers=${studio}`);
-        if (status) jikanParams.push(`status=${status}`);
-        if (type) jikanParams.push(`type=${type}`);
-        if (order) {
-            if (order === 'score') jikanParams.push(`sort=desc`);
-            else if (order === 'popularity') jikanParams.push(`sort=popularity`);
-            else if (order === 'trending') jikanParams.push(`sort=trending`);
-            else if (order === 'recently') jikanParams.push(`sort=start_date`);
-        }
-        jikanUrl += jikanParams.join('&');
-        const kitsuParams = [];
-        if (season) kitsuParams.push(`filter[season]=${season}`);
-        if (genre) kitsuParams.push(`filter[categories]=${genre}`);
-        if (status) kitsuParams.push(`filter[status]=${status}`);
-        if (type) kitsuParams.push(`filter[subtype]=${type}`);
-        if (order) {
-            if (order === 'score') kitsuParams.push(`sort=-averageRating`);
-            else if (order === 'popularity') kitsuParams.push(`sort=-userCount`);
-            else if (order === 'trending') kitsuParams.push(`sort=-trending`);
-            else if (order === 'recently') kitsuParams.push(`sort=-startDate`);
-        }
-        kitsuUrl += kitsuParams.join('&');
-        let jikanResults, kitsuResults;
-        if (order === 'trending') {
-            jikanResults = await fetchWithCache(`${JIKAN_BASE_URL}/top/anime?filter=airing`);
-            kitsuResults = await fetchWithCache(`${KITSU_BASE_URL}/trending/anime`);
-        } else if (order === 'recently') {
-            jikanResults = await fetchWithCache(`${JIKAN_BASE_URL}/anime?sort=start_date`);
-            kitsuResults = await fetchWithCache(`${KITSU_BASE_URL}/anime?sort=-startDate`);
-        } else {
-            [jikanResults, kitsuResults] = await Promise.all([
-                fetchWithCache(jikanUrl),
-                fetchWithCache(kitsuUrl)
+async function fetchSeasonalAnime() {
+    return fetchWithCache('seasonal', async () => {
+        const response = await fetchWithRetry(`${JIKAN_BASE_URL}/seasons/now?limit=12`);
+        return response.data.map(anime => ({
+            id: anime.mal_id,
+            title: anime.title,
+            image: anime.images.jpg.large_image_url,
+            rating: anime.score,
+            year: anime.year || 'N/A',
+            type: anime.type || 'TV'
+        }));
+    });
+}
+
+async function fetchTopAnime(type = 'weekly') {
+    const filter = type === 'weekly' ? 'bypopularity' : type === 'monthly' ? 'favorite' : '';
+    return fetchWithCache(`top:${type}`, async () => {
+        const response = await fetchWithRetry(`${JIKAN_BASE_URL}/top/anime?limit=12${filter ? `&filter=${filter}` : ''}`);
+        return response.data.map(anime => ({
+            id: anime.mal_id,
+            title: anime.title,
+            image: anime.images.jpg.large_image_url,
+            rating: anime.score,
+            year: anime.year || 'N/A',
+            type: anime.type || 'TV'
+        }));
+    });
+}
+
+async function searchAnime(query, genre = '', season = '', studio = '', status = '', type = '', orderBy = '') {
+    return fetchWithCache(`search:${query}:${genre}:${season}:${studio}:${status}:${type}:${orderBy}`, async () => {
+        const params = new URLSearchParams();
+        if (query) params.append('q', query);
+        if (genre) params.append('genres', genre);
+        if (season) params.append('season', season);
+        if (studio) params.append('producers', studio);
+        if (status) params.append('status', status);
+        if (type) params.append('type', type);
+        if (orderBy) params.append('order_by', orderBy);
+        params.append('limit', '24');
+        const response = await fetchWithRetry(`${JIKAN_BASE_URL}/anime?${params.toString()}`);
+        return response.data.map(anime => ({
+            id: anime.mal_id,
+            title: anime.title,
+            image: anime.images.jpg.large_image_url,
+            rating: anime.score,
+            year: anime.year || 'N/A',
+            type: anime.type || 'TV'
+        }));
+    });
+}
+
+async function fetchAnimeDetails(id) {
+    return fetchWithCache(`anime:${id}`, async () => {
+        try {
+            const [detailsRes, charactersRes, recommendationsRes] = await Promise.all([
+                fetchWithRetry(`${JIKAN_BASE_URL}/anime/${id}`),
+                fetchWithRetry(`${JIKAN_BASE_URL}/anime/${id}/characters`),
+                fetchWithRetry(`${JIKAN_BASE_URL}/anime/${id}/recommendations`)
             ]);
-        }
-        const combinedResults = mergeSources(jikanResults?.data || [], kitsuResults?.data || []);
-        document.querySelectorAll('section').forEach(s => s.classList.remove('active-section'));
-        const searchResultsSection = document.getElementById('search-results');
-        searchResultsSection.classList.add('active-section');
-        const container = document.getElementById('searchResults');
-        container.innerHTML = '';
-        if (combinedResults.length === 0) {
-            container.innerHTML = '<p>No results found.</p>';
-        } else {
-            combinedResults.forEach(anime => {
-                const card = createAnimeCard(anime);
-                container.appendChild(card);
-            });
-            searchResultsSection.scrollIntoView({ behavior: 'smooth' });
-        }
-    } catch (error) {
-        console.error('Error performing advanced search:', error);
-        const container = document.getElementById('searchResults');
-        container.innerHTML = '<p>Error loading search results. Please try again later.</p>';
-        document.querySelectorAll('section').forEach(s => s.classList.remove('active-section'));
-        document.getElementById('search-results').classList.add('active-section');
-    } finally {
-        hideLoading();
-    }
-}
-
-document.getElementById('applyFilters').addEventListener('click', () => {
-    performAdvancedSearch();
-});
-
-async function fetchCombinedData(type) {
-    try {
-        showLoading();
-        let jikanData, kitsuData;
-        switch (type) {
-            case 'trending':
-                jikanData = await fetchWithCache(`${JIKAN_BASE_URL}/top/anime?filter=airing`);
-                kitsuData = await fetchWithCache(`${KITSU_BASE_URL}/trending/anime`);
-                break;
-            case 'popular':
-                jikanData = await fetchWithCache(`${JIKAN_BASE_URL}/top/anime?filter=bypopularity`);
-                kitsuData = await fetchWithCache(`${KITSU_BASE_URL}/anime?sort=-userCount`);
-                break;
-            case 'weekly':
-                jikanData = await fetchWithCache(`${JIKAN_BASE_URL}/top/anime?filter=airing`);
-                kitsuData = await fetchWithCache(`${KITSU_BASE_URL}/trending/anime`);
-                break;
-            case 'monthly':
-                jikanData = await fetchWithCache(`${JIKAN_BASE_URL}/top/anime?filter=bypopularity`);
-                kitsuData = await fetchWithCache(`${KITSU_BASE_URL}/anime?sort=-userCount`);
-                break;
-            case 'all':
-                jikanData = await fetchWithCache(`${JIKAN_BASE_URL}/top/anime`);
-                kitsuData = await fetchWithCache(`${KITSU_BASE_URL}/anime?sort=-averageRating`);
-                break;
-            default:
-                throw new Error('Invalid type');
-        }
-        return mergeSources(jikanData?.data || [], kitsuData?.data || []);
-    } catch (error) {
-        console.error(`Error fetching ${type} data:`, error);
-        return [];
-    } finally {
-        hideLoading();
-    }
-}
-
-function mergeSources(jikanAnimes, kitsuAnimes) {
-    const combined = [];
-    jikanAnimes.forEach(anime => {
-        const titleParts = (anime.title || 'Untitled').split(':');
-        combined.push({
-            title: titleParts[0].trim(),
-            subtitle: titleParts[1] ? titleParts[1].trim() : '',
-            images: {
-                jpg: { 
-                    image_url: anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || 'https://via.placeholder.com/1200x400'
-                }
-            },
-            score: anime.score || 0,
-            synopsis: anime.synopsis || 'No synopsis available.',
-            type: anime.type || 'TV',
-            status: anime.status || 'Unknown',
-            genres: anime.genres?.map(g => g.name).join(', ') || 'Unknown'
-        });
-    });
-    kitsuAnimes.forEach(kitsuAnime => {
-        const title = kitsuAnime.attributes?.canonicalTitle || 'Untitled';
-        const titleParts = title.split(':');
-        if (!combined.some(anime => anime.title.toLowerCase() === title.toLowerCase())) {
-            combined.push({
-                title: titleParts[0].trim(),
-                subtitle: titleParts[1] ? titleParts[1].trim() : '',
-                images: {
-                    jpg: { 
-                        image_url: kitsuAnime.attributes?.coverImage?.original || kitsuAnime.attributes?.posterImage?.original || 'https://via.placeholder.com/1200x400'
-                    }
-                },
-                score: (kitsuAnime.attributes?.averageRating || 0) / 10,
-                synopsis: kitsuAnime.attributes?.synopsis || 'No synopsis available.',
-                type: kitsuAnime.attributes?.subtype || 'TV',
-                status: kitsuAnime.attributes?.status || 'Unknown',
-                genres: kitsuAnime.attributes?.categories?.join(', ') || 'Unknown'
-            });
+            const details = detailsRes.data;
+            const characters = charactersRes.data.slice(0, 6);
+            const recommendations = recommendationsRes.data.slice(0, 6);
+            return {
+                id: details.mal_id,
+                title: details.title,
+                title_japanese: details.title_japanese,
+                image: details.images.jpg.large_image_url,
+                trailer_url: details.trailer?.youtube_id ? `https://www.youtube.com/embed/${details.trailer.youtube_id}?autoplay=0` : null,
+                synopsis: details.synopsis,
+                rating: details.score,
+                rank: details.rank,
+                popularity: details.popularity,
+                status: details.status,
+                aired: { from: details.aired.from, to: details.aired.to },
+                season: details.season,
+                year: details.year,
+                episodes: details.episodes,
+                genres: details.genres.map(g => g.name),
+                studios: details.studios.map(s => s.name),
+                type: details.type,
+                characters: characters.map(c => ({
+                    id: c.character.mal_id,
+                    name: c.character.name,
+                    image: c.character.images.jpg.image_url,
+                    role: c.role
+                })),
+                recommendations: recommendations.map(r => ({
+                    id: r.entry.mal_id,
+                    title: r.entry.title,
+                    image: r.entry.images.jpg.image_url
+                }))
+            };
+        } catch (error) {
+            console.error(`Error fetching anime details for ID ${id}:`, error);
+            throw error;
         }
     });
-    return combined;
 }
 
-function createAnimeCard(anime) {
+function createAnimeCard(anime, index) {
+    const delay = index * 30;
     const card = document.createElement('div');
-    card.className = 'anime-card';
+    const imageUrl = anime.image || 'https://via.placeholder.com/200x267?text=No+Image';
+    card.className = 'anime-card slide-in';
+    card.style.animationDelay = `${delay}ms`;
     card.innerHTML = `
-        <div class="type-tag">${anime.type}</div>
-        <div class="status-tag">${anime.status}</div>
-        <img src="${anime.images.jpg.image_url}" alt="${anime.title}">
-        <div class="anime-info">
-            <h3>${anime.title}${anime.subtitle ? ': ' + anime.subtitle : ''}</h3>
+        <div class="image-container">
+            <img src="${imageUrl}" alt="${anime.title}" class="anime-image" onerror="this.src='https://via.placeholder.com/200x267?text=Error'">
+            ${anime.rating ? `<div class="rating">${anime.rating}</div>` : ''}
+        </div>
+        <div class="card-content">
+            <h3 class="anime-title">${anime.title}</h3>
+            <div class="anime-info">
+                <span>${anime.year || 'N/A'}</span>
+                <span>${anime.type || 'Anime'}</span>
+            </div>
         </div>
     `;
-    card.addEventListener('click', () => showAnimeDetails(anime));
+    card.addEventListener('click', () => {
+        previousPage = currentPage;
+        currentAnimeId = anime.id;
+        showAnimeDetails(anime.id);
+    });
     return card;
 }
 
-function createTopAnimeItem(anime, index) {
-    const item = document.createElement('div');
-    item.className = 'top-anime';
-    item.innerHTML = `
-        <span class="rank">${index + 1}</span>
-        <img src="${anime.images.jpg.image_url}" alt="${anime.title}">
-        <div class="top-anime-info">
-            <h4>${anime.title}${anime.subtitle ? ': ' + anime.subtitle : ''}</h4>
-            <p>Genres: ${anime.genres}</p>
-            <div class="rating">
-                <i class="fas fa-star"></i>
-                ${(anime.score || 0).toFixed(1)}
-            </div>
-        </div>
-    `;
-    return item;
+function showHomePage() {
+    homePage.classList.remove('hidden');
+    searchPage.classList.add('hidden');
+    detailPage.classList.add('hidden');
+    backLink.classList.add('hidden');
+    currentPage = 'home';
+    if (window.innerWidth < 768 && filterSidebar) filterSidebar.classList.remove('active');
+    document.title = "AnimeVerse - Enhanced";
 }
 
-function showAnimeDetails(anime) {
-    const modal = document.getElementById('animeModal');
-    const modalContent = document.getElementById('modalContent');
-    const slideIndex = slideshowData.findIndex(slide => slide.title === anime.title && slide.subtitle === anime.subtitle);
-    const imageUrl = slideIndex !== -1 ? dynamicSlideshowImages[slideIndex] : (anime.images?.jpg?.image_url || 'https://via.placeholder.com/1200x400');
-    modalContent.innerHTML = `
-        <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
-            <img src="${imageUrl}" alt="${anime.title}" 
-                 style="max-width: 300px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);">
-            <div>
-                <h2 style="color: var(--accent-color); margin-bottom: 1rem;">${anime.title}${anime.subtitle ? ': ' + anime.subtitle : ''}</h2>
-                <p style="margin: 1rem 0; color: var(--text-color);">${anime.synopsis}</p>
-                <p style="margin: 0.5rem 0; color: var(--text-color);">Type: ${anime.type || 'TV'}</p>
-                <p style="margin: 0.5rem 0; color: var(--text-color);">Status: ${anime.status || 'Unknown'}</p>
-                <p style="margin: 0.5rem 0; color: var(--text-color);">Genres: ${anime.genres || 'Unknown'}</p>
-                <div class="rating" style="font-size: 1.2rem;">
-                    <i class="fas fa-star"></i>
-                    ${(anime.score || 0).toFixed(1)}
+function showSearchPage(query, genre = '', season = '', studio = '', status = '', type = '', orderBy = '') {
+    homePage.classList.add('hidden');
+    searchPage.classList.remove('hidden');
+    detailPage.classList.add('hidden');
+    backLink.classList.remove('hidden');
+    currentPage = 'search';
+    lastSearchParams = { query, genre, season, studio, status, type, orderBy };
+    if (window.innerWidth < 768 && filterSidebar) filterSidebar.classList.remove('active');
+    const pageTitle = query ? `Search: ${query}` : 'Advanced Search';
+    document.title = `${pageTitle} - AnimeVerse`;
+    if (searchPage.querySelector('.section-title')) searchPage.querySelector('.section-title').textContent = pageTitle;
+    searchResultsContainer.innerHTML = '<div class="loading">Loading results...</div>';
+    searchAnime(query, genre, season, studio, status, type, orderBy).then(results => {
+        searchResultsContainer.innerHTML = '';
+        if (results.length === 0) {
+            searchResultsContainer.innerHTML = `
+                <div class="text-center py-6 w-full">
+                    <p class="text-xl">No results found${query ? ` for "${query}"` : ''}</p>
+                    <p class="mt-2 text-gray-400">Try a different search term or filters</p>
                 </div>
+            `;
+            return;
+        }
+        results.forEach((anime, index) => searchResultsContainer.appendChild(createAnimeCard(anime, index)));
+    }).catch(error => {
+        searchResultsContainer.innerHTML = `
+            <div class="text-center py-6 w-full">
+                <p class="text-xl">Error fetching search results</p>
+                <p class="mt-2 text-gray-400">${error.message}</p>
             </div>
-        </div>
-    `;
-    modal.style.display = 'block';
+        `;
+    });
+    window.scrollTo(0, 0);
 }
 
-document.querySelector('.close').addEventListener('click', () => {
-    const modal = document.getElementById('animeModal');
-    modal.style.opacity = '0';
-    setTimeout(() => {
-        modal.style.display = 'none';
-        modal.style.opacity = '1';
-    }, 300);
-});
-
-const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
-
-async function performSearch(query) {
-    try {
-        showLoading();
-        let combinedResults = [];
-        if (query.toLowerCase() === 'jujutsu kaisen') {
-            const specificTitles = ['berserk', 'monster', 'fairy tail', 'bleach'];
-            const searchPromises = specificTitles.map(title =>
-                Promise.all([
-                    fetchWithCache(`${JIKAN_BASE_URL}/anime?q=${title}`),
-                    fetchWithCache(`${KITSU_BASE_URL}/anime?filter[text]=${title}`)
-                ])
-            );
-            const results = await Promise.all(searchPromises);
-            results.forEach(([jikanResults, kitsuResults], index) => {
-                const merged = mergeSources(jikanResults?.data || [], kitsuResults?.data || []);
-                const anime = merged.find(a => a.title.toLowerCase() === specificTitles[index].toLowerCase());
-                if (anime) combinedResults.push(anime);
+function showAnimeDetails(id) {
+    homePage.classList.add('hidden');
+    searchPage.classList.add('hidden');
+    detailPage.classList.remove('hidden');
+    backLink.classList.remove('hidden');
+    currentPage = 'detail';
+    currentAnimeId = id;
+    if (window.innerWidth < 768 && filterSidebar) filterSidebar.classList.remove('active');
+    const detailTitle = getElement('detailTitle');
+    const detailJapanese = getElement('detailJapanese');
+    const detailImage = getElement('detailImage');
+    const detailRating = getElement('detailRating');
+    const detailRank = getElement('detailRank');
+    const detailPopularity = getElement('detailPopularity');
+    const detailType = getElement('detailType');
+    const detailEpisodes = getElement('detailEpisodes');
+    const detailStatus = getElement('detailStatus');
+    const detailAired = getElement('detailAired');
+    const detailSeason = getElement('detailSeason');
+    const detailStudios = getElement('detailStudios');
+    const detailGenres = getElement('detailGenres');
+    const detailSynopsis = getElement('detailSynopsis');
+    const charactersList = getElement('charactersList');
+    const trailerEmbed = getElement('trailerEmbed');
+    const recommendationsList = getElement('recommendationsList');
+    detailTitle.textContent = 'Loading...';
+    detailJapanese.textContent = '';
+    detailImage.src = '';
+    detailRating.textContent = 'N/A';
+    detailRank.textContent = 'N/A';
+    detailPopularity.textContent = 'N/A';
+    detailType.textContent = 'N/A';
+    detailEpisodes.textContent = 'N/A';
+    detailStatus.textContent = 'N/A';
+    detailAired.textContent = 'N/A';
+    detailSeason.textContent = 'N/A';
+    detailStudios.textContent = 'N/A';
+    detailGenres.textContent = 'N/A';
+    detailSynopsis.textContent = 'Loading synopsis...';
+    charactersList.innerHTML = '';
+    trailerEmbed.innerHTML = `<div class="trailer-placeholder"><p>Loading trailer...</p></div>`;
+    recommendationsList.innerHTML = '';
+    window.scrollTo(0, 0);
+    fetchAnimeDetails(id).then(anime => {
+        document.title = `${anime.title} - AnimeVerse`;
+        detailTitle.textContent = anime.title;
+        detailJapanese.textContent = anime.title_japanese || '';
+        detailImage.src = anime.image;
+        detailRating.textContent = anime.rating || 'N/A';
+        detailRank.textContent = anime.rank || 'N/A';
+        detailPopularity.textContent = anime.popularity || 'N/A';
+        detailType.textContent = anime.type || 'N/A';
+        detailEpisodes.textContent = anime.episodes || 'N/A';
+        detailStatus.textContent = anime.status || 'N/A';
+        const airedFrom = anime.aired.from ? new Date(anime.aired.from).toLocaleDateString() : '?';
+        const airedTo = anime.aired.to ? new Date(anime.aired.to).toLocaleDateString() : '?';
+        detailAired.textContent = `${airedFrom} to ${airedTo}`;
+        const seasonText = anime.season && anime.year ? `${anime.season.charAt(0).toUpperCase() + anime.season.slice(1)} ${anime.year}` : 'N/A';
+        detailSeason.textContent = seasonText;
+        detailStudios.textContent = anime.studios.length > 0 ? anime.studios.join(', ') : 'N/A';
+        detailGenres.textContent = anime.genres.length > 0 ? anime.genres.join(', ') : 'N/A';
+        detailSynopsis.textContent = anime.synopsis || 'No synopsis available';
+        charactersList.innerHTML = '';
+        if (anime.characters.length > 0) {
+            anime.characters.forEach(character => {
+                const charCard = document.createElement('div');
+                charCard.className = 'character-card';
+                charCard.innerHTML = `
+                    <img src="${character.image}" alt="${character.name}" class="character-image" onerror="this.src='https://via.placeholder.com/100x100?text=?'">
+                    <div class="character-name">${character.name}<span class="character-role">${character.role}</span></div>
+                `;
+                charactersList.appendChild(charCard);
             });
         } else {
-            const [jikanResults, kitsuResults] = await Promise.all([
-                fetchWithCache(`${JIKAN_BASE_URL}/anime?q=${query}`),
-                fetchWithCache(`${KITSU_BASE_URL}/anime?filter[text]=${query}`)
-            ]);
-            combinedResults = mergeSources(jikanResults?.data || [], kitsuResults?.data || []);
+            charactersList.innerHTML = '<p class="text-center w-full">No character information available</p>';
         }
-        document.querySelectorAll('section').forEach(s => s.classList.remove('active-section'));
-        const searchResultsSection = document.getElementById('search-results');
-        searchResultsSection.classList.add('active-section');
-        const container = document.getElementById('searchResults');
-        container.innerHTML = combinedResults.length ? '' : '<p>No results found.</p>';
-        combinedResults.forEach(anime => container.appendChild(createAnimeCard(anime)));
-        searchResultsSection.scrollIntoView({ behavior: 'smooth' });
-    } catch (error) {
-        console.error('Error searching:', error);
-        document.getElementById('searchResults').innerHTML = '<p>Error loading search results.</p>';
-        document.querySelectorAll('section').forEach(s => s.classList.remove('active-section'));
-        document.getElementById('search-results').classList.add('active-section');
-    } finally {
-        hideLoading();
-    }
-}
-
-searchBtn.addEventListener('click', () => {
-    if (searchInput.value.trim()) performSearch(searchInput.value.trim());
-});
-
-searchInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && searchInput.value.trim()) performSearch(searchInput.value.trim());
-});
-
-document.querySelectorAll('.ranking-tabs .tab').forEach(tab => {
-    tab.addEventListener('click', async (e) => {
-        document.querySelectorAll('.ranking-tabs .tab').forEach(t => t.classList.remove('active'));
-        e.target.classList.add('active');
-        const type = e.target.dataset.tab;
-        const data = await fetchCombinedData(type);
-        const container = document.getElementById('topAnimeList');
-        container.innerHTML = '';
-        if (data.length === 0) {
-            container.innerHTML = '<p>No data available.</p>';
+        trailerEmbed.innerHTML = anime.trailer_url ? `<iframe src="${anime.trailer_url}" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe>` : `<div class="trailer-placeholder"><p>No trailer available</p></div>`;
+        recommendationsList.innerHTML = '';
+        if (anime.recommendations.length > 0) {
+            anime.recommendations.forEach((rec, index) => recommendationsList.appendChild(createAnimeCard({ id: rec.id, title: rec.title, image: rec.image, type: 'Anime' }, index)));
         } else {
-            data.slice(0, 5).forEach((anime, index) => container.appendChild(createTopAnimeItem(anime, index)));
+            recommendationsList.innerHTML = '<p class="text-center w-full">No recommendations available</p>';
         }
+    }).catch(error => {
+        console.error('Error loading anime details:', error);
+        detailPage.innerHTML = `
+            <div class="text-center py-6">
+                <p class="text-xl">Error loading anime details</p>
+                <p class="mt-2 text-gray-400">${error.message || 'Unknown error'}</p>
+                <button class="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700" onclick="goBack()"><i class="fas fa-arrow-left mr-2"></i>Back</button>
+            </div>
+        `;
     });
-});
+}
 
-async function initializeHomePage() {
-    try {
-        const [trending, popular, weekly] = await Promise.all([
-            fetchCombinedData('trending'),
-            fetchCombinedData('popular'),
-            fetchCombinedData('weekly')
-        ]);
-        startSlideshow();
-        const popularContainer = document.getElementById('popularTodayAnime');
-        popular.slice(0, 10).forEach(anime => popularContainer.appendChild(createAnimeCard(anime)));
-        const topAnimeContainer = document.getElementById('topAnimeList');
-        weekly.slice(0, 5).forEach((anime, index) => topAnimeContainer.appendChild(createTopAnimeItem(anime, index)));
-    } catch (error) {
-        console.error('Error initializing home page:', error);
-    } finally {
-        setTimeout(hideInitialLoading, 2000);
+function setupTabButtons() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    if (tabButtons.length > 0) {
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                const tab = button.getAttribute('data-tab');
+                topAnimeContainer.innerHTML = '<div class="loading">Loading...</div>';
+                fetchTopAnime(tab).then(animeList => {
+                    topAnimeContainer.innerHTML = '';
+                    animeList.forEach((anime, index) => topAnimeContainer.appendChild(createAnimeCard(anime, index)));
+                }).catch(error => {
+                    topAnimeContainer.innerHTML = `
+                        <div class="text-center py-4 w-full">
+                            <p>Error loading top anime</p>
+                            <p class="mt-2 text-gray-400">${error.message}</p>
+                        </div>
+                    `;
+                });
+            });
+        });
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    document.body.classList.add('day-mode');
-    createSnowflakes();
-    initializeHomePage();
-});
+function goBack() {
+    if (currentPage === 'detail' && previousPage === 'search') {
+        showSearchPage(lastSearchParams.query, lastSearchParams.genre, lastSearchParams.season, lastSearchParams.studio, lastSearchParams.status, lastSearchParams.type, lastSearchParams.orderBy);
+    } else if (currentPage === 'detail' && previousPage === 'home') {
+        showHomePage();
+    } else if (currentPage === 'search' && previousPage === 'home') {
+        showHomePage();
+    } else if (currentPage === 'detail' && previousPage === 'detail' && currentAnimeId) {
+        showAnimeDetails(currentAnimeId);
+    } else {
+        showHomePage();
+    }
+}
+
+window.goBack = goBack;
+
+function toggleSidebar() {
+    filterSidebar.classList.toggle('active');
+}
+
+async function initApp() {
+    init3DBackground();
+    const modeToggle = getElement('modeToggle');
+    const effectToggle = getElement('effectToggle');
+    const musicToggle = getElement('musicToggle');
+    if (modeToggle) modeToggle.addEventListener('click', toggleMode);
+    if (effectToggle) effectToggle.addEventListener('click', toggleEffect);
+    if (musicToggle) musicToggle.addEventListener('click', toggleMusic);
+    if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebar);
+    if (logo) logo.addEventListener('click', (e) => {
+        e.preventDefault();
+        previousPage = currentPage;
+        showHomePage();
+    });
+    if (searchSubmitBtn && searchInput) {
+        searchSubmitBtn.addEventListener('click', () => {
+            const query = searchInput.value.trim();
+            if (query) {
+                previousPage = currentPage;
+                showSearchPage(query);
+            }
+        });
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const query = searchInput.value.trim();
+                if (query) {
+                    previousPage = currentPage;
+                    showSearchPage(query);
+                }
+            }
+        });
+    }
+    if (filterSearchBtn) {
+        filterSearchBtn.addEventListener('click', () => {
+            const query = searchInput ? searchInput.value.trim() : '';
+            const genre = genreFilter ? genreFilter.value : '';
+            const season = seasonFilter ? seasonFilter.value : '';
+            const studio = studioFilter ? studioFilter.value : '';
+            const status = statusFilter ? statusFilter.value : '';
+            const type = typeFilter ? typeFilter.value : '';
+            const orderBy = orderByFilter ? orderByFilter.value : '';
+            previousPage = currentPage;
+            showSearchPage(query, genre, season, studio, status, type, orderBy);
+        });
+    }
+    if (backLink) backLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        goBack();
+    });
+    setupTabButtons();
+    try {
+        trendingAnimeContainer.innerHTML = '<div class="loading">Loading trending anime...</div>';
+        seasonalAnimeContainer.innerHTML = '<div class="loading">Loading seasonal anime...</div>';
+        topAnimeContainer.innerHTML = '<div class="loading">Loading top anime...</div>';
+        const [trending, seasonal, top] = await Promise.all([fetchTrendingAnime(), fetchSeasonalAnime(), fetchTopAnime('weekly')]);
+        trendingAnimeContainer.innerHTML = '';
+        trending.forEach((anime, index) => trendingAnimeContainer.appendChild(createAnimeCard(anime, index)));
+        seasonalAnimeContainer.innerHTML = '';
+        seasonal.forEach((anime, index) => seasonalAnimeContainer.appendChild(createAnimeCard(anime, index)));
+        topAnimeContainer.innerHTML = '';
+        top.forEach((anime, index) => topAnimeContainer.appendChild(createAnimeCard(anime, index)));
+    } catch (error) {
+        console.error('Error loading initial data:', error);
+        homePage.innerHTML = `
+            <div class="text-center py-6">
+                <p class="text-xl">Error loading initial data</p>
+                <p class="mt-2 text-gray-400">${error.message}</p>
+                <button class="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700" onclick="location.reload()">Retry</button>
+            </div>
+        `;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initApp);
