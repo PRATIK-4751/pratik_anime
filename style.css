@@ -1,12 +1,18 @@
 :root {
-    --primary-color: #000000;
-    --secondary-color: #e40f0f;
-    --text-color: #FFFFFF;
-    --card-background: #1A1A1A;
-    --hover-color: #CC0000;
+    --primary-color: #ff3366; 
+    --secondary-color: #66ffcc;
+    --text-color: #ffffff;
+    --card-background: 
+        linear-gradient(145deg, 
+            #ff3366 0%, 
+            #ff6699 50%, 
+            #ff0066 100%);
+    --hover-color: #66ffcc;
     --sidebar-width: 280px;
+    --shadow-3d: 
+        0 8px 20px rgba(255, 51, 102, 0.4),
+        inset 0 -3px 5px rgba(0, 0, 0, 0.2);
 }
-
 * {
     margin: 0;
     padding: 0;
